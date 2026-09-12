@@ -179,10 +179,23 @@
       </div>
 
       <label>Occasion</label>
-      <select id="d-occasion"></select>
+      <select id="d-occasion" onchange="loadTemplates()"></select>
 
-      <label>Notes / what was said</label>
+      <label>Message template <span id="d-tpl-count" style="color:var(--accent);"></span></label>
+      <select id="d-template" onchange="applyTemplate()"><option value="">— pick a template or write your own below —</option></select>
+
+      <label>Notes / message to send</label>
       <textarea id="d-notes" placeholder="e.g. Called to check in, talked about her exam results"></textarea>
+
+      <div id="d-photo-wrap" style="display:none;margin-top:12px;">
+        <label>Photo (from Drive) — long-press to save, then attach to WhatsApp Status</label>
+        <img id="d-photo" style="width:100%;border-radius:12px;display:block;" />
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-secondary" onclick="copyMessage()">📋 Copy message</button>
+        <a class="btn btn-wa" id="d-wa-send" target="_blank">💬 Open WhatsApp chat</a>
+      </div>
 
       <button class="btn btn-primary btn-block" onclick="submitLog()">✅ Log this follow-up</button>
 
@@ -225,6 +238,26 @@
   <div class="toast" id="toast"></div>
 
   <script>
+    // ⚠️ PASTE YOUR APPS SCRIPT WEB APP URL HERE (Deploy → New deployment → Web app → copy the URL)
+    const API_URL = "https://script.google.com/macros/s/AKfycbxCHC9g-ZMoZ8MJ8BhHFvYJElxtktesMz2kmsGrZJwy4hy33rKVPu1m9BqRCEHQ9u6WBw/exec";
+
+    function apiGet(action, params = {}) {
+      const qs = new URLSearchParams({ action, ...params }).toString();
+      return fetch(`${API_URL}?${qs}`)
+        .then(r => r.json())
+        .then(res => { if (!res.ok) throw new Error(res.error); return res.data; });
+    }
+
+    function apiPost(action, payload = {}) {
+      return fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight
+        body: JSON.stringify({ action, payload })
+      })
+        .then(r => r.json())
+        .then(res => { if (!res.ok) throw new Error(res.error); return res.data; });
+    }
+
     let ALL_CONTACTS = [];
     let CURRENT_TAB = 'all';
     let SELECTED_ID = null;
@@ -236,11 +269,11 @@
     }
 
     function init(){
-      google.script.run.withSuccessHandler(onContacts).getContacts();
-      google.script.run.withSuccessHandler(list=>{
+      apiGet('getContacts').then(onContacts).catch(err => toast('Error: ' + err.message));
+      apiGet('getOccasions').then(list=>{
         const sel = document.getElementById('d-occasion');
         sel.innerHTML = list.map(o=>`<option>${o}</option>`).join('');
-      }).getOccasions();
+      }).catch(err => toast('Error: ' + err.message));
     }
 
     function onContacts(contacts){
@@ -265,7 +298,7 @@
 
       main.innerHTML = list.map(c => `
         <div class="card" onclick="openDetail('${c.id}')">
-          <div class="avatar">${initials(c.name)}</div>
+          <div class="avatar">${c.photoUrl ? `<img src="${c.photoUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : initials(c.name)}</div>
           <div class="card-body">
             <div class="name">${c.name}</div>
             <div class="meta">${c.category} · ${c.lastContact ? c.daysSince+'d since contact' : 'never contacted'}</div>
@@ -277,7 +310,7 @@
     }
 
     function renderBirthdays(){
-      google.script.run.withSuccessHandler(list=>{
+      apiGet('getUpcomingBirthdays').then(list=>{
         const main = document.getElementById('main');
         if (!list.length){ main.innerHTML = '<div class="empty">No birthdays saved yet.</div>'; return; }
         main.innerHTML = list.map(c=>`
@@ -289,7 +322,7 @@
             </div>
           </div>
         `).join('');
-      }).getUpcomingBirthdays();
+      }).catch(err => toast('Error: ' + err.message));
     }
 
     document.querySelectorAll('.tab').forEach(t=>{
@@ -311,14 +344,69 @@
       document.getElementById('d-sms').href = c.phone ? `sms:${c.phone}` : '#';
       document.getElementById('d-mail').href = c.email ? `mailto:${c.email}` : '#';
       document.getElementById('d-notes').value = '';
+      document.getElementById('d-template').innerHTML = '<option value="">— pick a template or write your own below —</option>';
+      document.getElementById('d-tpl-count').textContent = '';
+
+      const photoWrap = document.getElementById('d-photo-wrap');
+      if (c.photoUrl) {
+        photoWrap.style.display = 'block';
+        document.getElementById('d-photo').src = c.photoUrl;
+      } else {
+        photoWrap.style.display = 'none';
+      }
+
       document.getElementById('d-log').innerHTML = '<div class="empty">Loading…</div>';
-      google.script.run.withSuccessHandler(logs=>{
+      apiGet('getLogForContact', { id }).then(logs=>{
         document.getElementById('d-log').innerHTML = logs.length ? logs.map(l=>`
           <div class="log-item"><span class="occ">${l.occasion}</span> via ${l.channel}
             <div class="d">${l.date}${l.notes ? ' · '+l.notes : ''}</div></div>
         `).join('') : '<div class="empty">No history yet.</div>';
-      }).getLogForContact(id);
+      }).catch(err => toast('Error: ' + err.message));
+
       document.getElementById('detailOverlay').classList.add('open');
+      loadTemplates();
+      updateWaSendLink();
+    }
+
+    function loadTemplates(){
+      const occasion = document.getElementById('d-occasion').value;
+      if (!occasion || !SELECTED_ID) return;
+      const sel = document.getElementById('d-template');
+      sel.innerHTML = '<option value="">Loading…</option>';
+      apiGet('getPersonalizedMessages', { occasion, contactId: SELECTED_ID }).then(msgs=>{
+        document.getElementById('d-tpl-count').textContent = msgs.length ? `(${msgs.length} available)` : '(none yet — add some in the Messages sheet)';
+        sel.innerHTML = '<option value="">— pick a template or write your own below —</option>' +
+          msgs.map((m,i)=>`<option value="${i}">${m.length>60?m.slice(0,60)+'…':m}</option>`).join('');
+        sel.dataset.messages = JSON.stringify(msgs);
+      }).catch(err => toast('Error: ' + err.message));
+    }
+
+    function applyTemplate(){
+      const sel = document.getElementById('d-template');
+      if (sel.value === '') return;
+      const msgs = JSON.parse(sel.dataset.messages || '[]');
+      document.getElementById('d-notes').value = msgs[Number(sel.value)] || '';
+      updateWaSendLink();
+    }
+
+    function updateWaSendLink(){
+      const c = ALL_CONTACTS.find(x=>x.id===SELECTED_ID);
+      const text = document.getElementById('d-notes').value;
+      const link = document.getElementById('d-wa-send');
+      if (c && c.phone) {
+        link.href = `https://wa.me/${c.phone.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(text)}`;
+      } else {
+        link.href = '#';
+      }
+    }
+    document.getElementById('d-notes').addEventListener('input', updateWaSendLink);
+
+    function copyMessage(){
+      const text = document.getElementById('d-notes').value;
+      if (!text) { toast('Nothing to copy yet'); return; }
+      navigator.clipboard.writeText(text).then(()=>{
+        toast('Message copied — paste it into WhatsApp Status');
+      }).catch(()=> toast('Could not copy — select and copy manually'));
     }
 
     function closeSheet(id){ document.getElementById(id).classList.remove('open'); }
@@ -332,11 +420,11 @@
         channel: 'Manual',
         notes: document.getElementById('d-notes').value
       };
-      google.script.run.withSuccessHandler(()=>{
+      apiPost('logInteraction', payload).then(()=>{
         toast('Logged ✅');
         closeSheet('detailOverlay');
         init();
-      }).logInteraction(payload);
+      }).catch(err => toast('Error: ' + err.message));
     }
 
     function openAddSheet(){ document.getElementById('addOverlay').classList.add('open'); }
@@ -350,11 +438,11 @@
         birthday: document.getElementById('a-birthday').value
       };
       if (!c.name){ toast('Name is required'); return; }
-      google.script.run.withSuccessHandler(()=>{
+      apiPost('addContact', c).then(()=>{
         toast('Contact added');
         closeSheet('addOverlay');
         init();
-      }).addContact(c);
+      }).catch(err => toast('Error: ' + err.message));
     }
 
     function handleVCF(input){
@@ -372,22 +460,16 @@
 
       Promise.all(readers).then(texts => {
         progressEl.textContent = 'Importing… this can take a moment for large files.';
-        google.script.run
-          .withSuccessHandler(res=>{
-            progressEl.textContent = '';
-            toast(`${res.added} added${res.skipped ? ', ' + res.skipped + ' duplicates skipped' : ''}`);
-            closeSheet('addOverlay');
-            input.value = '';
-            init();
-          })
-          .withFailureHandler(err=>{
-            progressEl.textContent = '';
-            toast('Import failed: ' + (err.message || err));
-          })
-          .importVCF(texts);
-      }).catch(()=>{
+        return apiPost('importVCF', { texts });
+      }).then(res=>{
         progressEl.textContent = '';
-        toast('Could not read one or more files');
+        toast(`${res.added} added${res.skipped ? ', ' + res.skipped + ' duplicates skipped' : ''}`);
+        closeSheet('addOverlay');
+        input.value = '';
+        init();
+      }).catch(err=>{
+        progressEl.textContent = '';
+        toast('Import failed: ' + err.message);
       });
     }
 
