@@ -19,7 +19,8 @@
       --border:#eee8db;
       --radius:16px;
     }
-    *{box-sizing:border-box;}
+    * { box-sizing: border-box; }
+    html { -webkit-tap-highlight-color: transparent; }
     body{
       margin:0;
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
@@ -28,6 +29,12 @@
       -webkit-font-smoothing:antialiased;
       padding-bottom:80px;
     }
+    /* Center content and give it breathing room on tablets/desktops */
+    header, .tabs, .search-wrap, main {
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+    }
     header{
       position:sticky; top:0; z-index:10;
       background:var(--bg);
@@ -35,7 +42,7 @@
       border-bottom:1px solid var(--border);
     }
     header h1{
-      font-size:20px; margin:0 0 2px;
+      font-size:clamp(18px, 4vw, 22px); margin:0 0 2px;
       letter-spacing:.2px;
     }
     header p{margin:0;color:var(--muted);font-size:13px;}
@@ -43,33 +50,72 @@
     .tabs{
       display:flex; gap:6px; overflow-x:auto; padding:12px 16px 0;
       -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
     }
+    .tabs::-webkit-scrollbar{display:none;}
     .tab{
       flex:0 0 auto; padding:8px 14px; border-radius:999px;
       background:var(--card); border:1px solid var(--border);
       font-size:13px; color:var(--muted); white-space:nowrap;
+      cursor:pointer; transition:background .15s, color .15s, border-color .15s;
     }
     .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .tab:active{transform:scale(.96);}
+
+    .search-wrap{
+      position:sticky; top:64px; z-index:9;
+      background:var(--bg);
+      display:flex; align-items:center; gap:8px;
+      padding:10px 16px 4px;
+    }
+    .search-icon{font-size:14px;position:absolute;margin-left:12px;pointer-events:none;opacity:.6;}
+    .search-input{
+      width:100%; padding:11px 34px 11px 34px; border-radius:12px;
+      border:1px solid var(--border); background:var(--card); font-size:14px;
+      color:var(--ink);
+    }
+    .search-input:focus{outline:none;border-color:var(--accent);}
+    .clear-search{
+      position:absolute; margin-left:calc(100% - 46px); background:none; border:none;
+      color:var(--muted); font-size:14px; padding:6px;
+    }
 
     main{padding:14px 16px;}
     .section-title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:18px 2px 8px;}
+
+    /* Responsive contact grid: 1 column on phones, 2 on tablets, 3 on wide screens */
+    #contactGrid{
+      display:grid; grid-template-columns:1fr; gap:10px;
+    }
+    @media (min-width: 620px){
+      header, .tabs, .search-wrap, main { max-width: 960px; }
+      #contactGrid{ grid-template-columns:1fr 1fr; }
+    }
+    @media (min-width: 980px){
+      header, .tabs, .search-wrap, main { max-width: 1180px; }
+      #contactGrid{ grid-template-columns:1fr 1fr 1fr; }
+    }
 
     .card{
       background:var(--card);
       border:1px solid var(--border);
       border-radius:var(--radius);
       padding:14px;
-      margin-bottom:10px;
       display:flex; align-items:center; gap:12px;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
     }
+    .card:hover{box-shadow:0 4px 14px rgba(20,18,15,.06);border-color:#e3ddcb;}
+    .card:active{transform:scale(.985);}
     .avatar{
       width:46px;height:46px;border-radius:50%;
       background:var(--accent-soft); color:var(--accent);
       display:flex;align-items:center;justify-content:center;
       font-weight:600; font-size:16px; flex:0 0 auto;
+      overflow:hidden;
     }
     .card-body{flex:1; min-width:0;}
-    .card-body .name{font-weight:600; font-size:15px;}
+    .card-body .name{font-weight:600; font-size:15px; overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .card-body .meta{font-size:12px;color:var(--muted); margin-top:2px;}
     .badge{
       font-size:11px; padding:3px 8px; border-radius:999px; font-weight:600;
@@ -80,12 +126,33 @@
     .badge.overdue{background:#fbe9e6;color:var(--overdue);}
     .streak{font-size:11px;color:var(--accent);margin-top:2px;}
 
+    mark{background:#fff1b8;color:inherit;border-radius:3px;padding:0 1px;}
+
+    /* Skeleton loading state */
+    .skeleton-card{
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:14px; display:flex; align-items:center; gap:12px;
+    }
+    .sk-avatar, .sk-line{
+      background:linear-gradient(90deg, var(--border) 25%, #f5f1e6 37%, var(--border) 63%);
+      background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:8px;
+    }
+    .sk-avatar{width:46px;height:46px;border-radius:50%;flex:0 0 auto;}
+    .sk-line{height:12px;margin-bottom:6px;width:70%;}
+    .sk-line.short{width:40%;}
+    @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+
     .fab{
       position:fixed; right:18px; bottom:22px;
       width:56px;height:56px;border-radius:50%;
       background:var(--accent); color:#fff; border:none;
       font-size:28px; box-shadow:0 6px 16px rgba(122,111,240,.4);
       display:flex;align-items:center;justify-content:center;
+      transition:transform .12s ease;
+    }
+    .fab:active{transform:scale(.92);}
+    @media (min-width: 980px){
+      .fab{ right:calc((100vw - 1180px)/2 + 18px); }
     }
 
     .sheet-overlay{
@@ -94,9 +161,13 @@
     }
     .sheet-overlay.open{display:flex;}
     .sheet{
-      background:var(--bg); width:100%; max-height:88vh; overflow-y:auto;
+      background:var(--bg); width:100%; max-width:520px; max-height:88vh; overflow-y:auto;
       border-radius:20px 20px 0 0; padding:18px 18px 28px;
       animation:up .18s ease-out;
+    }
+    @media (min-width: 620px){
+      .sheet-overlay{ align-items:center; }
+      .sheet{ border-radius:20px; max-height:82vh; }
     }
     @keyframes up{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
     .sheet h2{margin:0 0 14px;font-size:18px;}
@@ -158,8 +229,18 @@
     <div class="tab" data-tab="birthdays">Birthdays</div>
   </div>
 
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input id="searchBox" class="search-input" type="search" placeholder="Search by name, phone, or email…" oninput="onSearch(this.value)">
+    <button id="clearSearch" class="clear-search" style="display:none" onclick="clearSearch()">✕</button>
+  </div>
+
   <main id="main">
-    <div class="loading">Fetching contacts…</div>
+    <div id="contactGrid">
+      <div class="skeleton-card"><div class="sk-avatar"></div><div style="flex:1"><div class="sk-line"></div><div class="sk-line short"></div></div></div>
+      <div class="skeleton-card"><div class="sk-avatar"></div><div style="flex:1"><div class="sk-line"></div><div class="sk-line short"></div></div></div>
+      <div class="skeleton-card"><div class="sk-avatar"></div><div style="flex:1"><div class="sk-line"></div><div class="sk-line short"></div></div></div>
+    </div>
   </main>
 
   <button class="fab" onclick="openAddSheet()">＋</button>
@@ -239,7 +320,7 @@
 
   <script>
     // ⚠️ PASTE YOUR APPS SCRIPT WEB APP URL HERE (Deploy → New deployment → Web app → copy the URL)
-    const API_URL = "https://script.google.com/macros/s/AKfycbxCHC9g-ZMoZ8MJ8BhHFvYJElxtktesMz2kmsGrZJwy4hy33rKVPu1m9BqRCEHQ9u6WBw/exec";
+    const API_URL = "PASTE_YOUR_DEPLOYMENT_URL_HERE";
 
     function apiGet(action, params = {}) {
       const qs = new URLSearchParams({ action, ...params }).toString();
@@ -261,6 +342,7 @@
     let ALL_CONTACTS = [];
     let CURRENT_TAB = 'all';
     let SELECTED_ID = null;
+    let SEARCH_TERM = '';
 
     function toast(msg){
       const t = document.getElementById('toast');
@@ -286,6 +368,25 @@
       return name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
     }
 
+    function highlight(text){
+      if (!SEARCH_TERM || !text) return text || '';
+      const idx = text.toLowerCase().indexOf(SEARCH_TERM.toLowerCase());
+      if (idx === -1) return text;
+      return text.slice(0,idx) + '<mark>' + text.slice(idx, idx+SEARCH_TERM.length) + '</mark>' + text.slice(idx+SEARCH_TERM.length);
+    }
+
+    function onSearch(val){
+      SEARCH_TERM = val.trim();
+      document.getElementById('clearSearch').style.display = SEARCH_TERM ? 'block' : 'none';
+      render();
+    }
+    function clearSearch(){
+      SEARCH_TERM = '';
+      document.getElementById('searchBox').value = '';
+      document.getElementById('clearSearch').style.display = 'none';
+      render();
+    }
+
     function render(){
       const main = document.getElementById('main');
       let list = ALL_CONTACTS;
@@ -294,26 +395,38 @@
       else if (CURRENT_TAB === 'birthdays') { renderBirthdays(); return; }
       else if (CURRENT_TAB !== 'all') list = list.filter(c=>c.category===CURRENT_TAB);
 
-      if (!list.length){ main.innerHTML = '<div class="empty">Nobody here yet. Tap ＋ to add someone.</div>'; return; }
+      if (SEARCH_TERM){
+        const q = SEARCH_TERM.toLowerCase();
+        list = list.filter(c =>
+          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.phone && c.phone.toLowerCase().includes(q)) ||
+          (c.email && c.email.toLowerCase().includes(q))
+        );
+      }
 
-      main.innerHTML = list.map(c => `
+      if (!list.length){
+        main.innerHTML = `<div class="empty">${SEARCH_TERM ? 'No matches for "'+SEARCH_TERM+'"' : 'Nobody here yet. Tap ＋ to add someone.'}</div>`;
+        return;
+      }
+
+      main.innerHTML = `<div id="contactGrid">` + list.map(c => `
         <div class="card" onclick="openDetail('${c.id}')">
           <div class="avatar">${c.photoUrl ? `<img src="${c.photoUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : initials(c.name)}</div>
           <div class="card-body">
-            <div class="name">${c.name}</div>
+            <div class="name">${highlight(c.name)}</div>
             <div class="meta">${c.category} · ${c.lastContact ? c.daysSince+'d since contact' : 'never contacted'}</div>
             ${c.streak>0 ? `<div class="streak">🔥 ${c.streak} streak</div>` : ''}
           </div>
           <span class="badge ${c.status}">${c.status==='ok'?'On track':c.status==='due-soon'?'Due soon':'Overdue'}</span>
         </div>
-      `).join('');
+      `).join('') + `</div>`;
     }
 
     function renderBirthdays(){
       apiGet('getUpcomingBirthdays').then(list=>{
         const main = document.getElementById('main');
         if (!list.length){ main.innerHTML = '<div class="empty">No birthdays saved yet.</div>'; return; }
-        main.innerHTML = list.map(c=>`
+        main.innerHTML = `<div id="contactGrid">` + list.map(c=>`
           <div class="card" onclick="openDetail('${c.id}')">
             <div class="avatar">🎂</div>
             <div class="card-body">
@@ -321,7 +434,7 @@
               <div class="meta">${c.daysAway===0?'Today!':c.daysAway+' days away'} · ${c.birthday}</div>
             </div>
           </div>
-        `).join('');
+        `).join('') + `</div>`;
       }).catch(err => toast('Error: ' + err.message));
     }
 
